@@ -38,7 +38,16 @@
           <tbody>
             {% for shortcut in shortcuts %}
             <tr>
-              <td>{{ shortcut.id }}</td>
+              <td>
+                <button
+                  class="copy"
+                  style="padding: 0.25rem; margin-right: 0.25rem"
+                  data-id="{{ shortcut.id }}"
+                >
+                  📋
+                </button>
+                <span>{{ shortcut.id }}</span>
+              </td>
               <td>{{ shortcut.url }}</td>
               <td>
                 <button data-id="{{ shortcut.id }}" class="delete">
@@ -52,8 +61,7 @@
       </article>
     </main>
     <script type="module">
-      const buttons = document.querySelectorAll("button.delete");
-      buttons.forEach((button) => {
+      document.querySelectorAll("button.delete").forEach((button) => {
         button.addEventListener(
           "click",
           async () => {
@@ -65,6 +73,21 @@
           { once: true },
         );
       });
+
+      document.querySelectorAll("button.copy").forEach((button) =>
+        button.addEventListener("click", async () => {
+          const id = button.getAttribute("data-id");
+          const promise = navigator.clipboard.writeText(
+            `${window.location.protocol}//${window.location.host}/${id}`,
+          );
+
+          try {
+            console.log(await promise);
+          } catch (e) {
+            console.error(e);
+          }
+        }),
+      );
     </script>
   </body>
 </html>
