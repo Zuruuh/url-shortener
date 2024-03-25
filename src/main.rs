@@ -24,7 +24,7 @@ async fn main() -> std::io::Result<()> {
     .await
     .unwrap();
 
-    println!("Listening in http://127.0.0.1:8080");
+    println!("Listening in http://0.0.0.0:8080");
 
     HttpServer::new(move || {
         App::new()
@@ -34,7 +34,7 @@ async fn main() -> std::io::Result<()> {
             .service(delete_shortcut)
             .service(redirect)
     })
-    .bind(("127.0.0.1", 8080))?
+    .bind(("0.0.0.0", 8080))?
     .run()
     .await
 }
