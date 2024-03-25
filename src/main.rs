@@ -1,10 +1,7 @@
 use actix_web::{
-    get,
-    http::StatusCode,
-    post,
-    web::{self, Redirect},
-    App, HttpResponse, HttpResponseBuilder, HttpServer, Responder,
+    get, http::StatusCode, post, web, App, HttpResponse, HttpResponseBuilder, HttpServer, Responder,
 };
+use askama::Template;
 use serde::Deserialize;
 
 #[actix_web::main]
@@ -17,7 +14,7 @@ async fn main() -> std::io::Result<()> {
     sqlx::query(
         r#"
             create table if not exists shortcuts (
-                id text not null,
+                id text primary key unique not null,
                 url text not null
             )
         "#,
@@ -25,6 +22,8 @@ async fn main() -> std::io::Result<()> {
     .execute(&pool)
     .await
     .unwrap();
+
+    println!("Listening in http://127.0.0.1:8080");
 
     HttpServer::new(move || {
         App::new()
@@ -38,9 +37,32 @@ async fn main() -> std::io::Result<()> {
     .await
 }
 
+#[derive(askama::Template)]
+#[template(path = "index.html")]
+pub struct Homepage {
+    pub shortcuts: Vec<GetShortcut>,
+}
+
 #[get("/")]
-async fn root() -> &'static str {
-    "Hello, World!"
+async fn root(sqlite: web::Data<sqlx::sqlite::SqlitePool>) -> impl Responder {
+    let mut sqlite = sqlite.acquire().await.unwrap();
+
+    let shortcuts: Vec<GetShortcut> = sqlx::query_as("select id, url from shortcuts")
+        .fetch_all(&mut *sqlite)
+        .await
+        .unwrap_or_default();
+
+    let template = Homepage { shortcuts };
+
+    HttpResponse::Ok()
+        .content_type("text/html")
+        .body(template.render().unwrap())
+}
+
+#[derive(Deserialize)]
+pub struct Shortcut {
+    pub id: String,
+    pub url: url::Url,
 }
 
 #[post("/")]
@@ -48,6 +70,10 @@ async fn create_shortcut(
     sqlite: web::Data<sqlx::sqlite::SqlitePool>,
     web::Form(shortcut): web::Form<Shortcut>,
 ) -> impl Responder {
+    if shortcut.id.trim().is_empty() {
+        return HttpResponse::BadRequest().body("Id cannot be empty");
+    }
+
     let mut sqlite = sqlite.acquire().await.unwrap();
 
     let results = sqlx::query("insert into shortcuts (id, url) values (?, ?)")
@@ -57,13 +83,25 @@ async fn create_shortcut(
         .await;
 
     match results {
-        Err(error) => HttpResponseBuilder::new(StatusCode::BAD_REQUEST).body(error.to_string()),
-        Ok(_) => HttpResponse::new(StatusCode::CREATED),
+        Err(error) => HttpResponse::BadRequest().body(error.to_string()),
+        Ok(_) => {
+            let shortcuts: Vec<GetShortcut> = sqlx::query_as("select id, url from shortcuts")
+                .fetch_all(&mut *sqlite)
+                .await
+                .unwrap_or_default();
+
+            let template = Homepage { shortcuts };
+
+            HttpResponse::Ok()
+                .content_type("text/html")
+                .body(template.render().unwrap())
+        }
     }
 }
 
 #[derive(sqlx::FromRow)]
 pub struct GetShortcut {
+    pub id: String,
     pub url: String,
 }
 
@@ -75,7 +113,7 @@ async fn redirect(
     let mut sqlite = sqlite.acquire().await.unwrap();
 
     let result: Result<Option<GetShortcut>, _> =
-        sqlx::query_as("select url from shortcuts where id = ?")
+        sqlx::query_as("select id, url from shortcuts where id = ?")
             .bind(id.into_inner())
             .fetch_optional(&mut *sqlite)
             .await;
@@ -89,10 +127,4 @@ async fn redirect(
                 .finish(),
         },
     }
-}
-
-#[derive(Deserialize)]
-pub struct Shortcut {
-    pub id: String,
-    pub url: url::Url,
 }

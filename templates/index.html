@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>URL Shortener</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.classless.min.css"
+    />
+  </head>
+  <body>
+    <main>
+      <article>
+        <form method="post">
+          <input name="id" placeholder="id" required aria-required />
+          <input
+            name="url"
+            type="url"
+            placeholder="https://..."
+            required
+            aria-required
+          />
+
+          <button type="submit">Submit</button>
+        </form>
+      </article>
+
+      <article>
+        <table>
+          <thead>
+            <tr>
+              <td>ID</td>
+              <td>URL</td>
+            </tr>
+          </thead>
+          <tbody>
+            {% for shortcut in shortcuts %}
+            <tr>
+              <td>{{ shortcut.id }}</td>
+              <td>{{ shortcut.url }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </article>
+    </main>
+  </body>
+</html>
