@@ -1,5 +1,6 @@
 use actix_web::{
-    get, http::StatusCode, post, web, App, HttpResponse, HttpResponseBuilder, HttpServer, Responder,
+    delete, get, http::StatusCode, post, web, App, HttpResponse, HttpResponseBuilder, HttpServer,
+    Responder,
 };
 use askama::Template;
 use serde::Deserialize;
@@ -30,6 +31,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(pool.clone()))
             .service(root)
             .service(create_shortcut)
+            .service(delete_shortcut)
             .service(redirect)
     })
     .bind(("127.0.0.1", 8080))?
@@ -43,26 +45,52 @@ pub struct Homepage {
     pub shortcuts: Vec<GetShortcut>,
 }
 
+impl Homepage {
+    pub async fn create_and_render(
+        mut sqlite: sqlx::pool::PoolConnection<sqlx::sqlite::Sqlite>,
+    ) -> HttpResponse {
+        let shortcuts: Vec<GetShortcut> = sqlx::query_as("select id, url from shortcuts")
+            .fetch_all(&mut *sqlite)
+            .await
+            .unwrap_or_default();
+
+        let template = Homepage { shortcuts };
+
+        HttpResponse::Ok()
+            .content_type("text/html")
+            .body(template.render().unwrap())
+    }
+}
+
 #[get("/")]
 async fn root(sqlite: web::Data<sqlx::sqlite::SqlitePool>) -> impl Responder {
-    let mut sqlite = sqlite.acquire().await.unwrap();
+    let sqlite = sqlite.acquire().await.unwrap();
 
-    let shortcuts: Vec<GetShortcut> = sqlx::query_as("select id, url from shortcuts")
-        .fetch_all(&mut *sqlite)
-        .await
-        .unwrap_or_default();
-
-    let template = Homepage { shortcuts };
-
-    HttpResponse::Ok()
-        .content_type("text/html")
-        .body(template.render().unwrap())
+    Homepage::create_and_render(sqlite).await
 }
 
 #[derive(Deserialize)]
 pub struct Shortcut {
     pub id: String,
     pub url: url::Url,
+}
+
+#[delete("/_delete/{id}")]
+async fn delete_shortcut(
+    sqlite: web::Data<sqlx::sqlite::SqlitePool>,
+    id: web::Path<String>,
+) -> impl Responder {
+    let mut sqlite = sqlite.acquire().await.unwrap();
+
+    let results = sqlx::query("delete from shortcuts where id = ?")
+        .bind(id.to_string())
+        .execute(&mut *sqlite)
+        .await;
+
+    match results {
+        Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
+        Ok(_) => HttpResponse::NoContent().finish(),
+    }
 }
 
 #[post("/")]
@@ -84,18 +112,7 @@ async fn create_shortcut(
 
     match results {
         Err(error) => HttpResponse::BadRequest().body(error.to_string()),
-        Ok(_) => {
-            let shortcuts: Vec<GetShortcut> = sqlx::query_as("select id, url from shortcuts")
-                .fetch_all(&mut *sqlite)
-                .await
-                .unwrap_or_default();
-
-            let template = Homepage { shortcuts };
-
-            HttpResponse::Ok()
-                .content_type("text/html")
-                .body(template.render().unwrap())
-        }
+        Ok(_) => Homepage::create_and_render(sqlite).await,
     }
 }
 

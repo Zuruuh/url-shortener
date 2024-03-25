@@ -32,6 +32,7 @@
             <tr>
               <td>ID</td>
               <td>URL</td>
+              <td>Actions</td>
             </tr>
           </thead>
           <tbody>
@@ -39,11 +40,31 @@
             <tr>
               <td>{{ shortcut.id }}</td>
               <td>{{ shortcut.url }}</td>
+              <td>
+                <button data-id="{{ shortcut.id }}" class="delete">
+                  delete
+                </button>
+              </td>
             </tr>
             {% endfor %}
           </tbody>
         </table>
       </article>
     </main>
+    <script type="module">
+      const buttons = document.querySelectorAll("button.delete");
+      buttons.forEach((button) => {
+        button.addEventListener(
+          "click",
+          async () => {
+            const id = button.getAttribute("data-id");
+            const promise = fetch(`/_delete/${id}`, { method: "delete" });
+            button.parentElement.parentElement.remove();
+            await promise;
+          },
+          { once: true },
+        );
+      });
+    </script>
   </body>
 </html>
