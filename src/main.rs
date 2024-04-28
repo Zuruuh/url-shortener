@@ -1,3 +1,5 @@
+#![feature(fs_try_exists)]
+
 use actix_web::{
     delete, get, http::StatusCode, post, web, App, HttpResponse, HttpResponseBuilder, HttpServer,
     Responder,
@@ -7,8 +9,13 @@ use serde::Deserialize;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    let database = std::env::var("DATABASE").unwrap_or("./db.sqlite".to_string());
+    if !std::fs::try_exists(&database)? {
+        std::fs::write(&database, "")?;
+    }
+
     let pool = sqlx::sqlite::SqlitePoolOptions::new()
-        .connect("./db.sqlite")
+        .connect(&database)
         .await
         .unwrap();
 

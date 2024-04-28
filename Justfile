@@ -1,2 +1,2 @@
 publish:
-  docker build . --tag registry.zuruh.dev/url-shortener --push
+  docker buildx build --push --tag registry.zuruh.dev/url-shortener .
