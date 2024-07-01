@@ -1,0 +1,4 @@
+[toolchain]
+channel = "nightly"
+date = "2024-06-22"
+targets = ["x86_64-unknown-linux-gnu"]

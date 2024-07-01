@@ -1,5 +1,3 @@
-#![feature(fs_try_exists)]
-
 use actix_web::{
     delete, get, http::StatusCode, post, web, App, HttpResponse, HttpResponseBuilder, HttpServer,
     Responder,
@@ -10,7 +8,7 @@ use serde::Deserialize;
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let database = std::env::var("DATABASE").unwrap_or("./db.sqlite".to_string());
-    if !std::fs::try_exists(&database)? {
+    if !std::fs::exists(&database)? {
         std::fs::write(&database, "")?;
     }
 
@@ -31,7 +29,7 @@ async fn main() -> std::io::Result<()> {
     .await
     .unwrap();
 
-    println!("Listening in http://0.0.0.0:8080");
+    println!("Listening in http://127.0.0.1:8080");
 
     HttpServer::new(move || {
         App::new()
